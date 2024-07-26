@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thêm dữ liệu Sinh viên</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/addFaceDB.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+    <script src="{{ url_for('static', filename='js/addFaceDB.js') }}"></script>
+</head>
+<body>
+    <div class="container">
+        {% include 'header.html' %}
+        <h2>THÊM DỮ LIỆU SINH VIÊN</h2>
+        <div class="content">
+            <div class="camera" style="position: relative;">
+                <div class="overlay-text">
+                    <p class="instruction" id="instruction-0" style="display: block">Vui lòng đọc kĩ hướng dẫn trong lúc lấy dữ liệu khuôn mặt.</p>
+                    <p class="instruction" id="instruction-1" style="display: none">Bắt đầu lấy dữ liệu.</p>
+                    <p class="instruction" id="instruction-2" style="display: none">Vui lòng nhìn thẳng.</p>
+                    <p class="instruction" id="instruction-3" style="display: none">Vui lòng quay sang trái 45 độ.</p>
+                    <p class="instruction" id="instruction-4" style="display: none">Vui lòng quay sang phải 45 độ.</p>
+                    <p class="instruction" id="instruction-5" style="display: none">Vui lòng nhìn lên trên 45 độ.</p>
+                    <p class="instruction" id="instruction-6" style="display: none">Vui lòng đọc to dãy số sau: </p>
+                </div>
+                <img src="{{ url_for('video_feed') }}" id="video-feed" style="transform: scaleX(-1);">
+                <div class="note">
+                    <p>Vui lòng không che mặt, quay ở nơi có ánh sáng rõ ràng.</p>
+                </div>
+                <div id="random-numbers" style="position: absolute; padding: 10px; border-radius: 10px; top: 220px; z-index: 1; color: black; background-color: rgba(255, 255, 255, 0.7);">
+                    <span class="instruction" style="opacity: 1;"></span>
+                </div>
+            </div>
+            <div class="info-form" id="info-form" >
+                <h3>NHẬP THÔNG TIN</h3>
+                <form action="{{ url_for('submit') }}" method="POST">
+                    <div class="form-group">
+                        <input type="text" id="name" name="name" placeholder="Họ và tên" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="student_id" name="student_id" placeholder="Mã số sinh viên" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="class_name" name="class_name" placeholder="Lớp" required>
+                    </div>
+                    <button type="submit" id="submit-btn">Xác Nhận</button>
+                </form>
+            </div>
+            <div class="info-display" style="display: none;">
+                <h3>THÔNG TIN</h3>
+                <div class="col-info">
+                    <div class="info-left">
+                        <p class="info-label"><strong>Họ và tên:</strong></p>
+                        <p class="info-label"><strong>Mã số sinh viên:</strong></p>
+                        <p class="info-label"><strong>Lớp:</strong></p>
+                    </div>
+                    <div class="info-right">
+                        <p id="display-name"></p>
+                        <p id="display-student-id"></p>
+                        <p id="display-class-name"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Success Modal -->
+    <div id="success-modal" class="modal">
+        <div class="modal-content">
+            <div id="progress-container">
+                <div id="progress-bar">0%</div>
+            </div>
+            <span class="close" onclick="location.href='{{ url_for('main_page') }}'">&times;</span>
+            <img class="icon-success" src="{{ url_for('static', filename='check.png') }}" alt="Success icon">
+            <p>Lưu dữ liệu thành công</p>
+        </div>
+    </div>
+</body>
+</html>
+
+
