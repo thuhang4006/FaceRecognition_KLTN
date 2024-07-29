@@ -1,55 +1,120 @@
 body {
-    font-family: Arial, sans-serif;
-    background-color: #f5f5f5;
-    margin: 0;
+    display: flex;
     height: 100vh;
+    overflow: hidden;
 }
 
-.container {
-    width: 100%;
+.logo {
+    width: 200px;
+}
+
+.sidebar {
+    width: 250px;
+    background-color: #de3c00;
+    color: white;
+    position: fixed;
     height: 100%;
-    margin: 0 auto;
-    background-color: #fff;
-    box-sizing: border-box;
+    overflow-y: auto;
+    transition: transform 0.3s ease;
 }
 
-h2 {
-    text-align: center;
-    color: #0056b3;
+.main-content {
+    margin-left: 250px;
+    width: calc(100% - 250px);
+    transition: margin-left 0.3s ease;
 }
 
-.content {
+.nav-link {
+    color: white;
+}
+
+.nav-link:hover {
+    color: rgb(134, 134, 134);
+}
+
+.header-link {
+    color: black;
+    text-decoration: none;
+    font-size: 20px;
+}
+
+.header-link:hover {
+    color: rgb(97, 97, 97);
+    text-decoration: none;
+}
+
+.nav-header {
+
+    background-color: rgb(238, 238, 238);
+    /* padding: 20px; */
+    padding: 20px 20px 20px 0px;
+
+    display: flex;
     justify-content: space-between;
-    margin-top: 20px;
 }
 
-.content button {
-    padding: 10px 20px;
-    background-color: #0056b3;
+.form-search {
+    display: flex;
+}
+
+.account-area {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    padding: 10px;
+    background-color: #de3c00;
+}
+
+.user-link {
+    display: flex;
+    align-items: center;
     color: #fff;
-    border: 2px solid #0056b3; /* Border mặc định */
-    border-radius: 4px;
+    text-decoration: none;
+}
+
+.user-link:hover {
+    color: #c0c0c0;
+    text-decoration: none;
+}
+
+.sidebar-hidden .sidebar {
+    transform: translateX(-250px);
+}
+
+.sidebar-hidden .main-content {
+    margin-left: 0;
+    width: 100%;
+}
+
+.toggle-button {
     cursor: pointer;
-    transition: background-color 0.3s, color 0.3s, border-color 0.3s; /* Hiệu ứng chuyển đổi màu */
-    width: 20%;
-    margin: 0 auto;
-    display: block;
+    background-color: #de3c00;
+    padding: 10px;
+    border-top-right-radius: 50%;
+    border-bottom-right-radius: 50%;
+
+    color: white;
+    margin-right: 20px;
 }
 
-.content button:hover {
-    background-color: #fff;
-    color: #0056b3;
-    font-weight: bold;
+.container-content {
+    /* background-color: rgb(238, 238, 238); */
+    padding: 20px;
+    /* padding: 20px 20px 20px 0px; */
+/*
+    display: flex;
+    justify-content: space-between; */
 }
 
+.table-list {
+    width: 100%;
+}
 
-@media (max-width: 768px) {
-    .content {
-        flex-direction: column;
-    }
+/* Thêm vào tệp main_page.css */
+.table tbody tr:hover {
+    background-color: #f8f9fa; /* Màu nền sáng khi di chuột */
+}
 
-    .camera, .info-form, .info-display {
-        min-width: 100%;
-        margin: 10px 0;
-    }
+.table tbody tr {
+    cursor: pointer;
 }

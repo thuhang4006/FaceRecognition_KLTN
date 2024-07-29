@@ -27,17 +27,58 @@ def configure_routes(app):
     def login():
         return render_template('login.html')
 
+    day_of_week_map = {
+        0: '2',  # Monday
+        1: '3',  # Tuesday
+        2: '4',  # Wednesday
+        3: '5',  # Thursday
+        4: '6',  # Friday
+        5: '7',  # Saturday
+        6: 'CN'  # Sunday
+    }
+
     @app.route('/management')
     def main_page():
-        return render_template('main_page.html')
+        classes_ref = db.collection('Classes')
+        classes_docs = classes_ref.stream()
+
+        classes_data = []
+        for doc in classes_docs:
+            class_data = doc.to_dict()
+            class_data['id'] = doc.id
+            class_data['start_date'] = class_data['start'].strftime("%d/%m/%Y")
+            class_data['end_date'] = class_data['end'].strftime("%d/%m/%Y")
+            class_data['day_of_week'] = day_of_week_map[class_data['start'].weekday()]
+            classes_data.append(class_data)
+
+        return render_template('main_page.html', classes=classes_data)
+
+    @app.route('/addFaceDB')
+    def add_face_db():
+        student_id = request.args.get('student_id', '')
+        name = request.args.get('name', '')
+        class_name = request.args.get('class_name', '')
+        return render_template('addFaceDB_page.html', student_id=student_id, name=name, class_name=class_name)
 
     @app.route('/addDB')
     def addDB():
         return render_template('addFaceDB_page.html')
 
+    # Đảm bảo camera được khởi tạo lại
+    def init_camera():
+        global camera
+        if camera is None or not camera.isOpened():
+            camera = cv2.VideoCapture(0)
     @app.route('/video_feed')
     def video_feed():
+        init_camera()
         return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+    @app.route('/stop_camera')
+    def stop_camera():
+        global camera
+        camera.release()
+        return jsonify({'status': 'camera stopped'})
 
     @app.route('/submit', methods=['POST'])
     def submit():
@@ -139,3 +180,73 @@ def configure_routes(app):
                 break
 
         return jsonify({'uploaded_files': uploaded_files})
+
+    @app.route('/get_classes')
+    def get_classes():
+        classes_ref = db.collection('Classes')
+        classes_docs = classes_ref.stream()
+
+        classes_data = []
+        for doc in classes_docs:
+            class_data = doc.to_dict()
+            class_data['id'] = doc.id
+            class_data['start_date'] = class_data['start'].strftime("%d/%m/%Y")
+            class_data['end_date'] = class_data['end'].strftime("%d/%m/%Y")
+            class_data['day_of_week'] = day_of_week_map[class_data['start'].weekday()]
+            classes_data.append(class_data)
+
+        return jsonify(classes_data)
+
+    @app.route('/get_students')
+    def get_students():
+        students_ref = db.collection('Students')
+        students = [doc.to_dict() for doc in students_ref.stream()]
+        return jsonify(students)
+
+    @app.route('/get_students_by_class')
+    def get_students_by_class():
+        class_id = request.args.get('class_id')
+        class_doc = db.collection('Classes').document(class_id).get()
+
+        if not class_doc.exists:
+            return jsonify([])
+
+        class_data = class_doc.to_dict()
+        sessions = class_data.get('buoi', [])
+
+        students_attendance = {}
+
+        for session in sessions:
+            students = session.get('students', [])
+            for student in students:
+                student_id = student['studentID']
+                if student_id not in students_attendance:
+                    students_attendance[student_id] = {
+                        'name': student['name'],
+                        'total_sessions': 0,
+                        'absences': 0
+                    }
+
+                checkin_status = student.get('checkinStatus', False)
+                checkout_status = student.get('checkoutStatus', False)
+
+                if checkin_status and checkout_status:
+                    students_attendance[student_id]['total_sessions'] += 1
+                else:
+                    students_attendance[student_id]['absences'] += 1
+
+        # Convert the dictionary to a list for JSON response
+        students_data = []
+        for student_id, attendance_info in students_attendance.items():
+            student_data = {
+                'studentID': student_id,
+                'name': attendance_info['name'],
+                'total_sessions': attendance_info['total_sessions'],
+                'absences': attendance_info['absences']
+            }
+            students_data.append(student_data)
+
+        return jsonify(students_data)
+
+
+

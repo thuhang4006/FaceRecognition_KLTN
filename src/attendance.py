@@ -1,8 +1,6 @@
 from datetime import datetime
 import sys
-
 import pygame
-from PyQt5.QtMultimedia import QSound
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QComboBox, QVBoxLayout, QHBoxLayout, QGroupBox, QSizePolicy, QSpacerItem, QGridLayout
 from PyQt5.QtGui import QFont, QImage, QPixmap
 from PyQt5.QtCore import Qt, QTimer, QTime
@@ -23,9 +21,9 @@ class AttendanceSystem(QWidget):
         self.face_embedding_updater = FaceEmbeddingUpdater()
         self.face_embedding_updater.update_face_embeddings()  # Cập nhật embeddings khi ứng dụng khởi động
 
-        # self.last_detection_time = QTime.currentTime()  # Thời điểm phát hiện khuôn mặt gần nhất
-        # self.timer_10min = QTimer()  # Timer để kiểm tra thời gian không phát hiện khuôn mặt
-        # self.timer_10min.timeout.connect(self.check_no_face_detected)
+        self.last_detection_time = QTime.currentTime()  # Thời điểm phát hiện khuôn mặt gần nhất
+        self.timer_10min = QTimer()  # Timer để kiểm tra thời gian không phát hiện khuôn mặt
+        self.timer_10min.timeout.connect(self.check_no_face_detected)
 
         # Khởi tạo MTCNN model
         self.mtcnn_model = MTCNNModel()
@@ -421,21 +419,27 @@ class AttendanceSystem(QWidget):
             print("Embedding không hợp lệ.")
             return
 
-        threshold = 0.5
-        min_distance = float('inf')
+        threshold = 0.5  # Bạn có thể cần điều chỉnh ngưỡng này
+        max_similarity = -1  # Giá trị cao nhất của độ tương tự
         closest_student = None
-        highest_sim = 0
 
-        for student_id, embeddings in self.face_embedding_updater.get_all_embeddings().items():
+        all_embeddings = self.face_embedding_updater.get_all_embeddings()
+
+        """
+        Cosine Similarity: Đảm bảo rằng giá trị độ tương tự cosine được tính đúng cách. Độ tương tự 
+        cosine thường nằm trong khoảng từ -1 đến 1, với 1 là hoàn toàn giống nhau. Trong trường hợp 
+        này, cần sử dụng giá trị dương gần với 1.
+        """
+        for student_id, embeddings in all_embeddings.items():
             for saved_embedding in embeddings:
-                distance = cosine_similarity([face_embedding.flatten()], [saved_embedding['embedding']])[0][0]
-                print(f"Khoảng cách giữa embedding và saved_embedding: {distance}")
+                similarity = cosine_similarity([face_embedding.flatten()], [saved_embedding['embedding']])[0][0]
+                print(f"Độ tương tự giữa embedding và saved_embedding: {similarity}")
 
-                if distance < min_distance:
-                    min_distance = distance
+                if similarity > max_similarity:
+                    max_similarity = similarity
                     closest_student = student_id
 
-        if highest_sim > 0.8:
+        if max_similarity > threshold:
             if closest_student and closest_student != self.last_recognized_student:
                 self.last_recognized_student = closest_student
                 self.update_student_info(closest_student)
@@ -456,10 +460,10 @@ class AttendanceSystem(QWidget):
             except Exception as e:
                 self.notificationLabel.setText(f'Lỗi khi phát âm thanh: {str(e)}')
 
-    # def check_no_face_detected(self):
-    #     # Kiểm tra nếu đã 10 phút không phát hiện khuôn mặt
-    #     if self.last_detection_time.secsTo(QTime.currentTime()) >= 600:
-    #         self.closeCamera()  # Tắt camera
+    def check_no_face_detected(self):
+        # Kiểm tra nếu đã 10 phút không phát hiện khuôn mặt
+        if self.last_detection_time.secsTo(QTime.currentTime()) >= 600:
+            self.closeCamera()  # Tắt camera
 
     def closeEvent(self, event):
         if self.cap is not None:
