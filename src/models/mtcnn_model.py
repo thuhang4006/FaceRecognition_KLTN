@@ -10,9 +10,7 @@ class MTCNNModel:
 
     def detect_faces(self, image):
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
         boxes, probs, landmarks = self.mtcnn.detect(image_rgb, landmarks=True)
-
         return boxes, landmarks
 
     def extract_faces(self, image, boxes, landmarks):
@@ -33,18 +31,18 @@ class MTCNNModel:
     # Hàm để căn chỉnh khuôn mặt bằng điểm mốc
     def align_face(self, img_rgb, box, landmarks):
         if landmarks is None or len(landmarks) == 0:
-            raise ValueError("No landmarks detected.")
+            raise ValueError("Không có điểm mốc nào được phát hiện.")
 
-        # Ensure landmarks have the correct shape
+        # Các điểm mốc có hình dạng đúng
         if len(landmarks.shape) == 2 and landmarks.shape[0] >= 5:
             # Chọn điểm mốc của khuôn mặt đầu tiên
             landmarks = landmarks.astype(int)
 
-            # Lấy điểm mốc của hai mắt
+            # Điểm mốc của hai mắt
             left_eye = landmarks[0]
             right_eye = landmarks[1]
 
-            # Tính toán góc xoay cần thiết để căn chỉnh hai mắt
+            # Tính toán góc xoay để căn chỉnh hai mắt
             delta_x = right_eye[0] - left_eye[0]
             delta_y = right_eye[1] - left_eye[1]
             angle = np.arctan2(delta_y, delta_x) * 180 / np.pi
@@ -64,6 +62,6 @@ class MTCNNModel:
 
             return aligned_face
         else:
-            raise ValueError("Landmarks shape is not as expected.")
+            raise ValueError("Hình dạng của điểm mốc không như mong đợi.")
 
 

@@ -12,12 +12,8 @@ class FaceNetModel:
     def get_embedding(self, aligned_face):
         """
         Tạo embedding cho khuôn mặt đã được căn chỉnh.
-
-        Parameters:
-            aligned_face (numpy.ndarray): Khuôn mặt đã được căn chỉnh.
-
-        Returns:
-            numpy.ndarray: Embedding của khuôn mặt.
+        Input: aligned_face (numpy.ndarray): Khuôn mặt đã được căn chỉnh.
+        Output: numpy.ndarray: Embedding của khuôn mặt.
         """
         if isinstance(aligned_face, np.ndarray) and aligned_face.size > 0:
             # Chuyển đổi ảnh sang tensor
@@ -29,19 +25,14 @@ class FaceNetModel:
 
             return embedding.squeeze().cpu().numpy()
         else:
-            return np.array([])  # Return an empty array if alignment fails
+            return np.array([])
 
     def preprocess_image(self, aligned_face):
         """
         Tiền xử lý ảnh cho phù hợp với mô hình FaceNet.
-
-        Parameters:
-            aligned_face (numpy.ndarray): Khuôn mặt đã được căn chỉnh.
-
-        Returns:
-            torch.Tensor: Ảnh đã được tiền xử lý dưới dạng tensor.
+        Input: aligned_face (numpy.ndarray): Khuôn mặt đã được căn chỉnh.
+        Output: torch.Tensor: Ảnh đã được tiền xử lý dưới dạng tensor.
         """
-
         face_img_resized = cv2.resize(aligned_face, (160, 160))
         face_img_normalized = face_img_resized / 255.0
         face_tensor = torch.tensor(face_img_normalized).permute(2, 0, 1).unsqueeze(0).float().to(self.device)

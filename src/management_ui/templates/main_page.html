@@ -27,6 +27,9 @@
             <li class="nav-item">
                 <a class="nav-link" href="#" id="manage-students">Quản lý sinh viên</a>
             </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" id="attendance-system">Điểm danh</a>
+            </li>
         </ul>
         <div class="account-area">
             <div class="dropdown">
@@ -95,6 +98,26 @@
                 $('#header-text').text('Danh sách sinh viên');
                 loadStudents();
                 localStorage.setItem('currentPage', 'students');
+            });
+
+            // Add an event listener for the attendance system
+            $('#attendance-system').on('click', function (event) {
+                event.preventDefault();
+                $('#header-link').attr('href', '#');
+                $('#header-text').text('Điểm danh');
+
+                // Send a request to start the attendance system
+                fetch('/start_attendance')
+                    .then(response => {
+                        if (response.ok) {
+                            alert('Attendance system started!');
+                        } else {
+                            alert('Failed to start attendance system.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error starting attendance system:', error);
+                    });
             });
 
             $('#search-input').on('input', function () {
@@ -208,8 +231,8 @@
                             <td>${student.className}</td>
                             <td>
                                 ${hasFacesData ?
-                                    `<a href="/addFaceDB?student_id=${student.studentID}&name=${student.name}&class_name=${student.className}" class="btn btn-check"><i class="bi bi-check-circle-fill text-success"></i></a>` :
-                                    `<a href="/addFaceDB?student_id=${student.studentID}&name=${student.name}&class_name=${student.className}" class="btn btn-plus"><i class="bi bi-plus-circle-fill text-danger"></i></a>`
+                                    `<a href="/addDB?student_id=${student.studentID}&name=${student.name}&class_name=${student.className}" class="btn btn-check"><i class="bi bi-check-circle-fill text-success"></i></a>` :
+                                    `<a href="/addDB?student_id=${student.studentID}&name=${student.name}&class_name=${student.className}" class="btn btn-plus"><i class="bi bi-plus-circle-fill text-danger"></i></a>`
                                 }
                             </td>
                         </tr>

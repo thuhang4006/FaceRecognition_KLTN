@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import sys
 import pygame
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QComboBox, QVBoxLayout, QHBoxLayout, QGroupBox, QSizePolicy, QSpacerItem, QGridLayout
@@ -17,26 +17,17 @@ class AttendanceSystem(QWidget):
         super().__init__()
         self.firebase_service = FirebaseService()
 
-        # Khởi tạo FaceEmbeddingUpdater và cập nhật embeddings
+        # Cập nhật embeddings khi ứng dụng khởi động
         self.face_embedding_updater = FaceEmbeddingUpdater()
-        self.face_embedding_updater.update_face_embeddings()  # Cập nhật embeddings khi ứng dụng khởi động
+        self.face_embedding_updater.update_face_embeddings()
 
-        self.last_detection_time = QTime.currentTime()  # Thời điểm phát hiện khuôn mặt gần nhất
-        self.timer_10min = QTimer()  # Timer để kiểm tra thời gian không phát hiện khuôn mặt
-        self.timer_10min.timeout.connect(self.check_no_face_detected)
-
-        # Khởi tạo MTCNN model
+        # models
         self.mtcnn_model = MTCNNModel()
-
-        # Khởi tạo FaceNet model
         self.facenet_model = FaceNetModel()
 
-        # # Thêm khởi tạo timer_10min để chạy sau 10 phút
-        # self.timer_10min.start(600000)  # 600000ms = 10 phút
-
         # ảnh thay thế
-        self.replacement_camera = QPixmap('images/face_recognition.jpg')
-        self.replacement_face = QPixmap('images/face.png')
+        self.replacement_camera = QPixmap('../images/face_recognition.jpg')
+        self.replacement_face = QPixmap('../images/face.png')
 
         # Thiết lập giao diện chính
         self.setWindowTitle('Hệ thống điểm danh khuôn mặt')
@@ -67,18 +58,21 @@ class AttendanceSystem(QWidget):
         # Load dữ liệu trước
         self.subjects_data = self.firebase_service.get_all_subjects()
         self.teachers_data = self.firebase_service.get_all_teachers()
-
         # Load subjects
         self.loadSubjects()
 
         # Khởi tạo pygame và âm thanh
         pygame.init()
         pygame.mixer.init()
-        self.success_sound = pygame.mixer.Sound('sounds/checked.mp3')
+        self.success_sound = pygame.mixer.Sound('../sounds/checked.mp3')
 
-        # Biến lưu thông tin nhận diện trước đó
-        self.last_recognized_student = None
+        # Biến lưu thông tin nhận diện
+        self.recognized_student = None
 
+        # Khởi tạo QTimer cho việc trì hoãn
+        self.delay_timer = QTimer()
+        self.delay_timer.setSingleShot(True)
+        self.delay_timer.timeout.connect(self.delayed_update_student_info)
 
     def createUI(self):
         # Tiêu đề chính
@@ -119,7 +113,7 @@ class AttendanceSystem(QWidget):
         self.closeCameraButton.setStyleSheet("background-color: #9B9BA0; color: black; border-radius: 5px; padding: 10px;")
 
         # Thông báo
-        self.notificationLabel = QLabel('Vui lòng chọn Môn học, Ca học để mở Camera điểm danh!', self)
+        self.notificationLabel = QLabel('<font size="5">Vui lòng đểm danh trước khi vào lớp!', self)
         self.notificationLabel.setFont(QFont('Arial', 8))
 
         # Màn hình nhận diện (face image)
@@ -154,7 +148,7 @@ class AttendanceSystem(QWidget):
             }
             
             QComboBox::down-arrow {
-                image: url(images/arrow.png);
+                image: url(../images/arrow.png);
                 width: 10px;
             }
         """
@@ -317,6 +311,67 @@ class AttendanceSystem(QWidget):
 
         return rightColumn
 
+    def openCamera(self):
+        # Kiểm tra nếu môn học và ca học đã được chọn
+        if self.subjectComboBox.currentIndex() == 0 or self.classComboBox.currentIndex() == 0:
+            self.notificationLabel.setText('<font color="red" size="5">Vui lòng chọn Môn học và Ca học trước khi mở Camera!')
+            return
+
+        self.cap = cv2.VideoCapture(0)
+        if not self.cap.isOpened():
+            self.notificationLabel.setText('Không thể mở camera!')
+            return
+
+        self.timer.start(20)
+        self.notificationLabel.setText('<font size="5">Vui lòng điểm danh trước khi vào lớp!')
+
+    def closeCamera(self):
+        if self.cap:
+            self.timer.stop()
+            self.cap.release()
+            self.cap = None
+            self.detectionScreen.setPixmap(self.replacement_camera)  # Hiển thị ảnh thay thế khi tắt camera
+
+    def updateFrame(self):
+        try:
+            ret, frame = self.cap.read()
+            if not ret:
+                print('Không thể đọc khung hình từ camera.')
+                return
+
+            boxes, landmarks = self.mtcnn_model.detect_faces(frame)
+            if boxes is not None and landmarks is not None:
+                faces = self.mtcnn_model.extract_faces(frame, boxes, landmarks)
+                if faces:
+                    print(f"Số lượng khuôn mặt phát hiện: {len(faces)}")
+
+                    for face_data in faces:
+                        if isinstance(face_data, dict) and 'aligned_face' in face_data:
+                            aligned_face = face_data['aligned_face']
+
+                            # Kiểm tra kích thước của aligned_face
+                            print(f"Kích thước của aligned_face: {aligned_face.shape}")
+
+                            # Trước khi tính toán embedding
+                            if aligned_face is not None and aligned_face.shape[0] > 0 and aligned_face.shape[1] > 0:
+                                face_embedding = self.facenet_model.get_embedding(aligned_face)
+                                print(f"Kích thước của face_embedding: {face_embedding.shape}")
+                                self.recognize_face(face_embedding)
+                            else:
+                                print("Khuôn mặt không hợp lệ.")
+
+            # Cập nhật khung hình cho GUI
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            h, w, ch = frame.shape
+            bytesPerLine = ch * w
+            convertToQtFormat = QImage(frame.data, w, h, bytesPerLine, QImage.Format_RGB888)
+            scaledImage = convertToQtFormat.scaled(self.detectionScreen.size(), Qt.KeepAspectRatio)
+            self.detectionScreen.setPixmap(QPixmap.fromImage(scaledImage))
+
+        except Exception as e:
+            print(f'Lỗi khi xử lý khung hình: {str(e)}')
+            self.closeCamera()
+
     def loadSubjects(self):
         self.subjectComboBox.clear()
         self.subjectComboBox.addItem('Chọn môn học', None)
@@ -339,88 +394,36 @@ class AttendanceSystem(QWidget):
         if selected_class_id:
             class_data = self.firebase_service.get_class_by_id(selected_class_id)
             if class_data:
-                # Retrieve class details
                 teacher_id = class_data.get('teacherID', '')
                 start_time = class_data.get('start', '')
                 end_time = class_data.get('end', '')
 
-                # Retrieve subject name from the selected subject
                 selected_subject_id = self.subjectComboBox.currentData()
                 if selected_subject_id:
                     subject_name = self.subjects_data[selected_subject_id].get('name', '')
                     self.subjectInfoLabel.setText(subject_name)
 
-                # Retrieve teacher's name based on teacherID
+                # Lấy tên GV bằng teacherID
                 if teacher_id:
                     teacher_data = self.firebase_service.get_teacher_by_id(teacher_id)
                     if teacher_data:
                         self.teacherInfoLabel.setText(teacher_data.get('name', ''))
 
-                # Set class time
-                self.timeInfoLabel.setText(f'{start_time} - {end_time}')
+                if start_time and end_time:
+                    start_time_utc7 = start_time + timedelta(hours=7)
+                    end_time_utc7 = end_time + timedelta(hours=7)
 
-    def openCamera(self):
-        # Kiểm tra nếu môn học và ca học đã được chọn
-        if self.subjectComboBox.currentIndex() == 0 or self.classComboBox.currentIndex() == 0:
-            self.notificationLabel.setText('Vui lòng chọn Môn học và Ca học trước khi mở Camera!')
-            return
-
-        self.cap = cv2.VideoCapture(0)
-        if not self.cap.isOpened():
-            self.notificationLabel.setText('Không thể mở camera!')
-            return
-
-        self.timer.start(20)  # Cập nhật khung hình mỗi 20ms
-
-    def closeCamera(self):
-        if self.cap:
-            self.timer.stop()
-            self.cap.release()
-            self.cap = None
-            self.detectionScreen.setPixmap(self.replacement_camera)  # Hiển thị ảnh thay thế khi tắt camera
-
-    def updateFrame(self):
-        try:
-            ret, frame = self.cap.read()
-            if ret:
-                boxes, landmarks = self.mtcnn_model.detect_faces(frame)
-                if boxes is not None and landmarks is not None:
-                    faces = self.mtcnn_model.extract_faces(frame, boxes, landmarks)
-                    if faces:
-                        print(f"Số lượng khuôn mặt phát hiện: {len(faces)}")
-
-                        for face_data in faces:
-                            if isinstance(face_data, dict) and 'aligned_face' in face_data:
-                                aligned_face = face_data['aligned_face']
-
-                                # Kiểm tra kích thước của aligned_face
-                                print(f"Kích thước của aligned_face: {aligned_face.shape}")
-
-                                # Trước khi tính toán embedding
-                                if aligned_face is not None and aligned_face.shape[0] > 0 and aligned_face.shape[1] > 0:
-                                    face_embedding = self.facenet_model.get_embedding(aligned_face)
-                                    print(f"Kích thước của face_embedding: {face_embedding.shape}")
-                                    self.recognize_face(face_embedding)
-                                else:
-                                    print("Khuôn mặt không hợp lệ.")
-
-                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    h, w, ch = frame.shape
-                    bytesPerLine = ch * w
-                    convertToQtFormat = QImage(frame.data, w, h, bytesPerLine, QImage.Format_RGB888)
-                    scaledImage = convertToQtFormat.scaled(self.detectionScreen.size(), Qt.KeepAspectRatio)
-                    self.detectionScreen.setPixmap(QPixmap.fromImage(scaledImage))
-        except Exception as e:
-            print(f'Lỗi khi xử lý khung hình: {str(e)}')
-            self.closeCamera()
+                    start_time_str = start_time_utc7.strftime('%H:%M:%S')
+                    end_time_str = end_time_utc7.strftime('%H:%M:%S')
+                    self.timeInfoLabel.setText(f'{start_time_str} - {end_time_str}')
 
     def recognize_face(self, face_embedding):
         if face_embedding.size == 0:
             print("Embedding không hợp lệ.")
             return
 
-        threshold = 0.5  # Bạn có thể cần điều chỉnh ngưỡng này
-        max_similarity = -1  # Giá trị cao nhất của độ tương tự
+        threshold = 0.8
+        max_similarity = -1
         closest_student = None
 
         all_embeddings = self.face_embedding_updater.get_all_embeddings()
@@ -440,30 +443,98 @@ class AttendanceSystem(QWidget):
                     closest_student = student_id
 
         if max_similarity > threshold:
-            if closest_student and closest_student != self.last_recognized_student:
-                self.last_recognized_student = closest_student
-                self.update_student_info(closest_student)
+            if closest_student and closest_student != self.recognized_student:
+                # Delay sau 2s mới điểm danh thành công 2 giây
+                self.delay_timer.start(1500)  # 2000 ms = 2 giây
+                self.recognized_student = closest_student
         else:
-            self.notificationLabel.setText('Không nhận diện được khuôn mặt!')
+            self.notificationLabel.setText('<font size="5">Vui lòng điểm danh trước khi vào lớp!')
+
+    def delayed_update_student_info(self):
+        student_id = getattr(self, 'recognized_student', None)
+        if student_id:
+            self.update_student_info(student_id)
 
     def update_student_info(self, student_id):
-        # Lấy dữ liệu sinh viên từ Firebase
+        selected_class_id = self.classComboBox.currentData()
+        class_data = self.firebase_service.get_class_by_id(selected_class_id)
+
+        student_ids_in_class = class_data.get('studentIDs', [])
+        if student_id not in student_ids_in_class:
+            self.notificationLabel.setText('<font color="red" size="5">Không phải sinh viên trong lớp!')
+            self.studentIdLabel.clear()
+            self.studentNameLabel.clear()
+            self.timeLabel.clear()
+            return
+
         student_data = self.firebase_service.get_student_by_id(student_id)
-        if student_data:
-            name = student_data.get('name', 'Không rõ')
+        if not student_data:
+            self.notificationLabel.setText('<font color="red" size="5">Không tìm thấy thông tin sinh viên.')
+            return
+
+        name = student_data.get('name')
+        self.studentIdLabel.setText(student_id)
+        self.studentNameLabel.setText(name)
+        self.timeLabel.setText(datetime.now().strftime('%H:%M:%S'))
+
+        # Cập nhật thông tin điểm danh lên Firebase
+        current_datetime = datetime.now()  # Sử dụng datetime thay vì date
+        buoi_array = class_data.get('buoi', [])
+        date_today = current_datetime.date()
+
+        # Tìm kiếm ngày hiện tại trong buoi_array
+        buoi_today = next((buoi for buoi in buoi_array if buoi.get('ngay').date() == date_today), None)
+
+        if buoi_today:
+            # Nếu ngày hiện tại đã tồn tại, kiểm tra tình trạng điểm danh
+            students_array = buoi_today.get('students', [])
+            student_exists = next((student for student in students_array if student['studentID'] == student_id), None)
+
+            if not student_exists:
+                # Hiển thị thông tin sinh viên
+                self.studentIdLabel.setText(student_id)
+                self.studentNameLabel.setText(name)
+                self.timeLabel.setText(datetime.now().strftime('%H:%M:%S'))
+                # Phát âm thanh
+                self.success_sound.play()
+
+                # cập nhật thông tin điểm danh ln firebase
+                students_array.append({
+                    'checkinStatus': True,
+                    'checkoutStatus': True,
+                    'studentID': student_id,
+                    'name': name
+                })
+                buoi_today['students'] = students_array
+
+                # Cập nhật dữ liệu lớp học
+                self.firebase_service.update_class_data(selected_class_id, {'buoi': buoi_array})
+            else:
+                # Sinh viên đã điểm danh, không làm gì cả
+                self.notificationLabel.setText('<font color="green" size="5">Sinh viên đã điểm danh hôm nay!')
+
+        # Nếu ngày hiện tại chưa tồn tại
+        else:
+            # Hiện thông tin sinh viên
             self.studentIdLabel.setText(student_id)
             self.studentNameLabel.setText(name)
             self.timeLabel.setText(datetime.now().strftime('%H:%M:%S'))
-            # Phát âm thanh điểm danh thành công
-            try:
-                self.success_sound.play()
-            except Exception as e:
-                self.notificationLabel.setText(f'Lỗi khi phát âm thanh: {str(e)}')
+            # Phát âm thanh
+            self.success_sound.play()
 
-    def check_no_face_detected(self):
-        # Kiểm tra nếu đã 10 phút không phát hiện khuôn mặt
-        if self.last_detection_time.secsTo(QTime.currentTime()) >= 600:
-            self.closeCamera()  # Tắt camera
+            # Thêm mới và cập nhật thông tin điểm danh
+            buoi_array.append({
+                'ngay': current_datetime,  # Sử dụng datetime
+                'students': [{
+                    'checkinStatus': True,
+                    'checkoutStatus': True,
+                    'studentID': student_id,
+                    'name': name
+                }]
+            })
+            # Cập nhật dữ liệu lớp học
+            self.firebase_service.update_class_data(selected_class_id, {'buoi': buoi_array})
+
 
     def closeEvent(self, event):
         if self.cap is not None:

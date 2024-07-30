@@ -1,12 +1,10 @@
+import sys
 import tempfile
 from flask import render_template, Response, request, url_for, redirect, jsonify, session
 import cv2
 import os
-from datetime import datetime
-from google.cloud.firestore_v1 import FieldFilter
 from src.firebase_config import bucket, db
 from datetime import datetime, timedelta
-
 camera = cv2.VideoCapture(0)
 
 
@@ -27,6 +25,7 @@ def configure_routes(app):
     def login():
         return render_template('login.html')
 
+
     day_of_week_map = {
         0: '2',  # Monday
         1: '3',  # Tuesday
@@ -39,30 +38,14 @@ def configure_routes(app):
 
     @app.route('/management')
     def main_page():
-        classes_ref = db.collection('Classes')
-        classes_docs = classes_ref.stream()
+        return render_template('main_page.html')
 
-        classes_data = []
-        for doc in classes_docs:
-            class_data = doc.to_dict()
-            class_data['id'] = doc.id
-            class_data['start_date'] = class_data['start'].strftime("%d/%m/%Y")
-            class_data['end_date'] = class_data['end'].strftime("%d/%m/%Y")
-            class_data['day_of_week'] = day_of_week_map[class_data['start'].weekday()]
-            classes_data.append(class_data)
-
-        return render_template('main_page.html', classes=classes_data)
-
-    @app.route('/addFaceDB')
-    def add_face_db():
+    @app.route('/addDB')
+    def addDB():
         student_id = request.args.get('student_id', '')
         name = request.args.get('name', '')
         class_name = request.args.get('class_name', '')
         return render_template('addFaceDB_page.html', student_id=student_id, name=name, class_name=class_name)
-
-    @app.route('/addDB')
-    def addDB():
-        return render_template('addFaceDB_page.html')
 
     # Đảm bảo camera được khởi tạo lại
     def init_camera():
@@ -139,7 +122,7 @@ def configure_routes(app):
             })
 
         # Cập nhật Firestore với các URL ảnh
-        # Tạo một dictionary để lưu trữ facesData mới
+        # Dictionary để lưu trữ facesData mới
         new_faces_data = []
 
         # Lấy danh sách các documents có cùng studentID
@@ -156,7 +139,7 @@ def configure_routes(app):
                     # Tạo URL công khai cho blob
                     image_url = blob.generate_signed_url(expiration=timedelta(days=365), method='GET')
 
-                    timestamp = datetime.utcnow()  # lấy thời gian hiện tại dạng UTC
+                    timestamp = datetime.now()  # lấy thời gian hiện tại dạng UTC
 
                     # Thay thế phần xử lý fileName và imageUrl
                     new_faces_data.append({
@@ -235,7 +218,6 @@ def configure_routes(app):
                 else:
                     students_attendance[student_id]['absences'] += 1
 
-        # Convert the dictionary to a list for JSON response
         students_data = []
         for student_id, attendance_info in students_attendance.items():
             student_data = {
@@ -247,6 +229,11 @@ def configure_routes(app):
             students_data.append(student_data)
 
         return jsonify(students_data)
+
+
+
+
+
 
 
 

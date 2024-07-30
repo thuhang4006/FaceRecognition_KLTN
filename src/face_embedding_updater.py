@@ -19,15 +19,15 @@ class FaceEmbeddingUpdater:
         self.firebase_service = FirebaseService()
 
     def update_face_embeddings(self):
-        print("update_face_embeddings function called")
+        print("Cập nhật dữ liệu embeddings...")
         # Kiểm tra và tạo thư mục dữ liệu nếu chưa tồn tại
         if not os.path.exists(self.data_directory):
             os.makedirs(self.data_directory)
-            print(f"Created data directory: {self.data_directory}")
+            print(f"Thư mục data đã được tạo: {self.data_directory}")
 
         # Lấy danh sách sinh viên từ Firebase
         students = self.firebase_service.get_all_students_dict()
-        print(f"Students retrieved: {students}")
+        print(f"Sinh viên: {students}")
 
         for student in students:
             student_id = student.get('studentID')
@@ -38,18 +38,18 @@ class FaceEmbeddingUpdater:
             # Tên thư mục cho sinh viên
             folder_name = f"{student_id}_{updated_time.strftime('%Y%m%d%H%M%S')}" if updated_time else f"{student_id}_{created_time.strftime('%Y%m%d%H%M%S')}" if created_time else student_id
             student_folder = os.path.join(self.data_directory, folder_name)
-            print(f"Creating folder: {student_folder}")
+            print(f"Đang tạo thư mục: {student_folder}")
 
             # Kiểm tra và tạo thư mục cho sinh viên nếu chưa tồn tại
             if not os.path.exists(student_folder):
                 os.makedirs(student_folder)
-                print(f"Created student folder: {student_folder}")
+                print(f"Đã tạo thư mục cho sinh viên: {student_folder}")
 
             # Đọc thời gian cập nhật từ metadata
             last_updated_time = self.get_last_updated_time(student_folder)
             if last_updated_time and updated_time <= last_updated_time:
-                print(f"Skipping update for student {student_id} as the data is up-to-date.")
-                continue  # Bỏ qua nếu dữ liệu đã được cập nhật
+                print(f"Bỏ qua cập nhật cho sinh viên {student_id} vì dữ liệu đã cập nhật.")
+                continue
 
             # Xóa các file cũ trước khi xử lý ảnh mới
             self.clear_old_embeddings(student_folder)
@@ -64,20 +64,17 @@ class FaceEmbeddingUpdater:
     def clear_old_embeddings(self, student_folder):
         """
         Xóa các file embedding cũ trong thư mục sinh viên.
-
-        Parameters:
-            student_folder (str): Thư mục của sinh viên chứa các file embedding.
+        Input: student_folder (str): Thư mục của sinh viên chứa các file embedding.
         """
         for file_name in os.listdir(student_folder):
             if file_name.endswith('.npy'):
                 os.remove(os.path.join(student_folder, file_name))
-        print(f"Cleared old embeddings in folder: {student_folder}")
+        print(f"Xóa các file embedding cũ trong: {student_folder}")
 
     def process_faces(self, student_folder, faces_data):
         """
         Xử lý ảnh khuôn mặt và lưu embeddings.
-
-        Parameters:
+        Input:
             student_folder (str): Thư mục lưu embeddings cho sinh viên.
             faces_data (list): Danh sách dữ liệu khuôn mặt từ Firebase.
         """
@@ -94,29 +91,25 @@ class FaceEmbeddingUpdater:
                     for i, aligned_face in enumerate(aligned_faces):
                         if aligned_face['aligned_face'].size == 0:
                             print(f"Detected face {i} is empty in image {file_name}")
-                            continue  # Bỏ qua nếu khuôn mặt rỗng
+                            continue  # Khuôn mặt rỗng
 
                         # Lấy embedding và lưu
                         embedding = self.facenet_model.get_embedding(aligned_face['aligned_face'])
                         if embedding is not None and embedding.size > 0:
-                            print(f"Embedding for {file_name} has shape {embedding.shape}")
+                            print(f"Embedding của {file_name} có dạng {embedding.shape}")
                             self.save_embedding(student_folder, file_name, embedding)
                         else:
-                            print(f"Empty embedding for {file_name}")
+                            print(f"{file_name} có embedding rỗng")
                 else:
-                    print(f"No faces detected in image {file_name}")
+                    print(f"Không nhận diện được khuôn mặt trong ảnh {file_name}")
             else:
-                print(f"Failed to download image from {image_url}")
+                print(f"Không thể tải ảnh từ {image_url}")
 
     def download_image(self, url):
         """
         Tải ảnh từ URL.
-
-        Parameters:
-            url (str): URL của ảnh.
-
-        Returns:
-            numpy.ndarray: Ảnh đã được tải xuống.
+        Input: url (str): URL của ảnh.
+        Output: numpy.ndarray: Ảnh đã được tải xuống.
         """
         try:
             response = requests.get(url, timeout=10)
@@ -130,8 +123,7 @@ class FaceEmbeddingUpdater:
     def save_metadata(self, student_folder, student_id, updated_time):
         """
         Lưu thông tin studentID và thời gian cập nhật vào tệp metadata.
-
-        Parameters:
+        Input:
             student_folder (str): Thư mục của sinh viên.
             student_id (str): Mã sinh viên.
             updated_time (datetime): Thời gian cập nhật từ Firebase.
@@ -146,40 +138,34 @@ class FaceEmbeddingUpdater:
     def save_embedding(self, folder, file_name, embedding):
         """
         Lưu embedding dưới dạng file .npy.
-
-        Parameters:
+        Input:
             folder (str): Thư mục lưu embeddings.
             file_name (str): Tên file của ảnh.
             embedding (numpy.ndarray): Embedding của khuôn mặt.
         """
-        # Ensure the folder exists
+
         if not os.path.exists(folder):
             os.makedirs(folder)
 
-        # Sanitize file_name to prevent invalid characters
+        # Làm sạch tên file tránh các ký tự không hợp lệ
         sanitized_file_name = file_name.replace('/', '_').replace('\\', '_').replace(':', '_').replace('?', '_').replace('*', '_').replace('"', '_').replace('<', '_').replace('>', '_').replace('|', '_')
         embedding_file = os.path.join(folder, f"{sanitized_file_name}.npy")
 
-        # Save the embedding
+        # Save embedding
         try:
-            # Ensure the embedding is not empty
             if embedding.size > 0:
                 np.save(embedding_file, embedding)
-                print(f"Saved embedding for {file_name} as {embedding_file}")
+                print(f"Lưu embedding thành công cho {file_name} với {embedding_file}")
             else:
-                print(f"Skipping save for {file_name} because embedding is empty.")
+                print(f"Không lưu {file_name} vì embedding tống.")
         except Exception as e:
-            print(f"Failed to save embedding for {file_name}: {e}")
+            print(f"Không lưu được embedding cho {file_name}: {e}")
 
     def get_last_updated_time(self, student_folder):
         """
         Đọc thông tin thời gian cập nhật từ tệp metadata.
-
-        Parameters:
-            student_folder (str): Thư mục của sinh viên.
-
-        Returns:
-            datetime: Thời gian cập nhật nếu có, None nếu không.
+        Input: student_folder (str): Thư mục của sinh viên.
+        Output: datetime: Thời gian cập nhật nếu có, None nếu không.
         """
         metadata_file = os.path.join(student_folder, 'metadata.json')
         if os.path.exists(metadata_file):

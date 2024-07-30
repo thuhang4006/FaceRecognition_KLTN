@@ -1,5 +1,4 @@
 import io
-
 import cv2
 import numpy as np
 import requests
@@ -47,14 +46,6 @@ class FirebaseService:
             return teacher_doc.to_dict()
         return None
 
-    def get_all_students(self):
-        students_data = {}
-        students_ref = self.db.collection('Students')
-        students = students_ref.stream()
-        for student in students:
-            students_data[student.id] = student.to_dict()
-        return students_data
-
     def get_all_students_dict(self):
         # Giả sử bạn lấy dữ liệu từ Firestore
         students_ref = self.db.collection('Students')
@@ -71,22 +62,18 @@ class FirebaseService:
             return doc.to_dict()
         return None
 
-    def download_image(self, url):
+    def update_class_data(self, class_id, update_data):
         """
-        Tải ảnh từ URL.
+        Cập nhật dữ liệu lớp học trong Firestore.
 
-        Parameters:
-            url (str): URL của ảnh.
-
-        Returns:
-            numpy.ndarray: Ảnh đã được tải xuống.
+        :param class_id: ID của lớp học cần cập nhật.
+        :param update_data: Dữ liệu cần cập nhật.
         """
+        class_ref = self.db.collection('Classes').document(class_id)
         try:
-            response = requests.get(url, timeout=10)
-            if response.status_code == 200:
-                image = cv2.imdecode(np.frombuffer(response.content, np.uint8), cv2.IMREAD_COLOR)
-                return image
-        except requests.RequestException as e:
-            print(f"Lỗi khi tải ảnh: {e}")
-        return None
+            class_ref.update(update_data)
+            print(f"Dữ liệu lớp học {class_id} đã được cập nhật thành công.")
+        except Exception as e:
+            print(f"Lỗi khi cập nhật dữ liệu lớp học {class_id}: {str(e)}")
+
 
