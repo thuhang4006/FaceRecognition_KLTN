@@ -1,6 +1,6 @@
 $(document).ready(function () {
-    let studentsDataByClass = []; // Biến toàn cục để lưu dữ liệu sinh viên theo lớp
-    let classesDataBySubject = []; // Biến toàn cục để lưu dữ liệu lớp theo môn học
+    let studentsDataByClass = []; // Biến lưu dữ liệu sinh viên theo lớp
+    let classesDataBySubject = []; // Biến lưu dữ liệu lớp theo môn học
 
     // Hàm cập nhật URL khi chuyển trang
     function updateHistoryState(page, title, url) {
@@ -24,13 +24,22 @@ $(document).ready(function () {
         updateHistoryState('classes', 'Danh sách các lớp', '/classes');
     });
 
-    $('#manage-students').on('click', function (event) {
+    $('#attendance-system').on('click', function (event) {
         event.preventDefault();
-        $('#header-text').text('Danh sách sinh viên');
-        loadStudents();
-        localStorage.setItem('currentPage', 'students');
-        updateHistoryState('students', 'Danh sách sinh viên', '/students');
+        fetch('/start-attendance')
+            .then(response => {
+                if (response.ok) {
+                    alert('Đã mở hệ thống điểm danh.');
+                } else {
+                    alert('Không thể mở hệ thống điểm danh.');
+                }
+            })
+            .catch(error => {
+                console.error('Error starting attendance system:', error);
+            });
     });
+
+
 
     $('#search-input').on('input', function () {
         let searchText = $(this).val().toLowerCase();
@@ -60,7 +69,7 @@ $(document).ready(function () {
             </table>
         `);
         fetch('/subjects').then(response => response.json()).then(data => {
-            window.subjectsData = data; // Lưu dữ liệu vào biến toàn cục
+            window.subjectsData = data; // Lưu dữ liệu vào biến toàn cục để sử dụng cho tìm kiếm
             displaySubjects(data);
         });
     }
@@ -85,31 +94,8 @@ $(document).ready(function () {
             </table>
         `);
         fetch('/classes').then(response => response.json()).then(data => {
-            window.classesData = data; // Lưu dữ liệu vào biến toàn cục để sử dụng cho tìm kiếm
+            window.classesData = data;
             displayClasses(data);
-        });
-    }
-
-    function loadStudents() {
-        $('#content-area').html(`
-            <table class="table" style="width: 100%;">
-                <thead class="thead-light">
-                    <tr>
-                        <th scope="col">STT</th>
-                        <th scope="col">Mã sinh viên</th>
-                        <th scope="col">Tên sinh viên</th>
-                        <th scope="col">Giới tính</th>
-                        <th scope="col">Lớp</th>
-                        <th scope="col">Dữ liệu</th>
-                    </tr>
-                </thead>
-                <tbody id="students-table-body">
-                </tbody>
-            </table>
-        `);
-        fetch('/students').then(response => response.json()).then(data => {
-            window.studentsData = data; // Lưu dữ liệu vào biến toàn cục để sử dụng cho tìm kiếm
-            displayStudents(data);
         });
     }
 
@@ -117,7 +103,7 @@ $(document).ready(function () {
         fetch(`/subjects/${subjectId}/classes`)
             .then(response => response.json())
             .then(data => {
-                classesDataBySubject = data; // Lưu dữ liệu vào biến toàn cục để sử dụng cho tìm kiếm
+                classesDataBySubject = data;
                 displayClassesBySubject(data);
                 localStorage.setItem('currentPage', 'classesBySubject');
                 localStorage.setItem('currentSubjectId', subjectId);
@@ -129,7 +115,7 @@ $(document).ready(function () {
         fetch(`/classes/${classId}/students`)
             .then(response => response.json())
             .then(data => {
-                studentsDataByClass = data; // Lưu dữ liệu vào biến toàn cục
+                studentsDataByClass = data;
                 displayStudentsByClass(data);
                 localStorage.setItem('currentPage', 'studentsByClass');
                 localStorage.setItem('currentClassId', classId);
@@ -190,29 +176,6 @@ $(document).ready(function () {
             $('#header-text').text('Danh sách sinh viên trong lớp');
             loadStudentsByClass(classId);
         });
-    }
-
-    function displayStudents(data) {
-        let rows = '';
-        data.forEach((student, index) => {
-            const hasFacesData = student.facesData && student.facesData.length > 0;
-            rows += `
-                <tr>
-                    <th scope="row">${index + 1}</th>
-                    <td>${student.studentID}</td>
-                    <td>${student.name}</td>
-                    <td>${student.sex}</td>
-                    <td>${student.className}</td>
-                    <td>
-                        ${hasFacesData ?
-                            `<a href="/addDB?student_id=${student.studentID}&name=${student.name}&class_name=${student.className}" class="btn btn-check"><i class="bi bi-check-circle-fill text-success"></i></a>` :
-                            `<a href="/addDB?student_id=${student.studentID}&name=${student.name}&class_name=${student.className}" class="btn btn-plus"><i class="bi bi-plus-circle-fill text-danger"></i></a>`
-                        }
-                    </td>
-                </tr>
-            `;
-        });
-        $('#students-table-body').html(rows);
     }
 
     function displayClassesBySubject(data) {
@@ -325,13 +288,6 @@ $(document).ready(function () {
     }
 
     function filterStudents(searchText) {
-        let filteredStudents = window.studentsData.filter(student =>
-            student.studentID.toLowerCase().includes(searchText) ||
-            student.name.toLowerCase().includes(searchText) ||
-            student.sex.toLowerCase().includes(searchText) ||
-            student.className.toLowerCase().includes(searchText)
-        );
-
         // Kiểm tra xem hiện tại đang hiển thị danh sách sinh viên của lớp hay không
         if ($('#header-text').text() === 'Danh sách sinh viên trong lớp') {
             filteredStudents = studentsDataByClass.filter(student =>
@@ -339,8 +295,6 @@ $(document).ready(function () {
                 student.name.toLowerCase().includes(searchText)
             );
             displayStudentsByClass(filteredStudents);
-        } else {
-            displayStudents(filteredStudents);
         }
     }
 
@@ -355,10 +309,6 @@ $(document).ready(function () {
                 case 'classes':
                     $('#header-text').text('Danh sách các lớp');
                     loadClasses();
-                    break;
-                case 'students':
-                    $('#header-text').text('Danh sách sinh viên');
-                    loadStudents();
                     break;
                 case 'classesBySubject':
                     let subjectId = localStorage.getItem('currentSubjectId');
@@ -387,10 +337,6 @@ $(document).ready(function () {
             case 'classes':
                 $('#header-text').text('Danh sách các lớp');
                 loadClasses();
-                break;
-            case 'students':
-                $('#header-text').text('Danh sách sinh viên');
-                loadStudents();
                 break;
             case 'classesBySubject':
                 let subjectId = localStorage.getItem('currentSubjectId');

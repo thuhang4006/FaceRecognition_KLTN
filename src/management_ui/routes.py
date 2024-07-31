@@ -1,9 +1,11 @@
+import subprocess
 import sys
 import tempfile
 from flask import render_template, Response, request, url_for, redirect, jsonify, session
 import cv2
 import os
-from src.firebase_config import bucket, db
+from firebase_admin import auth
+from src.firebase_config import bucket, db,is_valid_email, is_valid_password
 from datetime import datetime, timedelta
 camera = cv2.VideoCapture(0)
 
@@ -25,6 +27,42 @@ def configure_routes(app):
     def login():
         return render_template('login.html')
 
+    @app.route('/login', methods=['POST'])
+    def login_post():
+        email = request.form.get('email')
+        password = request.form.get('password')
+
+        if not is_valid_email(email):
+            return jsonify({'error': 'Định dạng email không hợp lệ'}), 400
+        if not is_valid_password(password):
+            return jsonify({'error': 'Mật khẩu phải có ít nhất 6 ký tự!'}), 400
+
+        try:
+            user = auth.get_user_by_email(email)
+            custom_claims = auth.get_user(user.uid).custom_claims
+            role = custom_claims.get('role') if custom_claims else None
+
+            if role == 'admin':
+                session['role'] = 'admin'
+            elif role == 'teacher':
+                session['role'] = 'teacher'
+
+            session['user_id'] = user.uid
+
+            if role == 'admin':
+                return redirect(url_for('main_page'))
+            elif role == 'teacher':
+                return redirect(url_for('teacher_page'))
+
+        except Exception as e:
+            print(f"Error logging in: {e}")
+            return jsonify({'error': 'Email hoặc mật khẩu không hợp lệ'}), 401
+
+    @app.route('/logout')
+    def logout():
+        session.clear()
+        return redirect(url_for('login'))
+
 
     day_of_week_map = {
         0: '2',  # Monday
@@ -39,6 +77,38 @@ def configure_routes(app):
     @app.route('/management')
     def main_page():
         return render_template('main_page.html')
+
+    @app.route('/teacher_page')
+    def teacher_page():
+        user_id = session.get('user_id')
+        teacher_doc_ref = db.collection('Teachers').document(user_id).get()
+        teacher_data = teacher_doc_ref.to_dict()
+        teacher_name = teacher_data.get('name')
+
+        return render_template('teacher_page.html', teacher_name=teacher_name)
+
+    @app.route('/start-attendance')
+    def start_attendance():
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            attendance_file_path = os.path.abspath(
+                os.path.join(current_dir, '..', 'attendance.py'))
+
+            # Chạy `attendance.py`
+            subprocess.run(
+                [sys.executable, attendance_file_path],
+                check=True,
+                capture_output=True,
+                text=True,
+                encoding='utf-8',  # Chỉ định mã hóa UTF-8
+                errors='replace'  # Thay thế ký tự không hợp lệ
+            )
+
+            return jsonify({'success': True})
+        except subprocess.CalledProcessError as e:
+            # In lỗi subprocess nếu xảy ra lỗi
+            print("Subprocess error:", e.stderr)
+            return jsonify({'success': False, 'error': e.stderr})
 
     @app.route('/addDB')
     def addDB():
@@ -164,10 +234,52 @@ def configure_routes(app):
 
         return jsonify({'uploaded_files': uploaded_files})
 
-    @app.route('/get_classes')
+    @app.route('/subjects', methods=['GET'])
+    def get_subjects():
+        user_id = session.get('user_id')
+        role = session.get('role')
+
+        print(f"User ID: {user_id}, Role: {role}")  # Debugging line
+
+        subjects_ref = db.collection('Subjects')
+        if role == 'teacher':
+            teacher_doc_ref = db.collection('Teachers').document(user_id).get()
+            teacher_data = teacher_doc_ref.to_dict()
+            teacher_id = teacher_data.get('teacherID')
+
+            teacher_subjects_ref = subjects_ref.where('teacherIDs', 'array_contains', teacher_id)
+            subjects_docs = teacher_subjects_ref.stream()
+        else:
+            subjects_docs = subjects_ref.stream()
+
+        subjects = []
+
+        for doc in subjects_docs:
+            subject_data = doc.to_dict()
+            subject_data['id'] = doc.id
+            # Đếm số lớp bằng cách đếm số phần tử trong classIDs
+            class_ids = subject_data.get('classIDs', [])
+            subject_data['totalClasses'] = len(class_ids)
+
+            subjects.append(subject_data)
+        return jsonify(subjects)
+
+
+    @app.route('/classes')
     def get_classes():
+        user_id = session.get('user_id')
+        role = session.get('role')
+
         classes_ref = db.collection('Classes')
-        classes_docs = classes_ref.stream()
+        if role == 'teacher':
+            teacher_doc_ref = db.collection('Teachers').document(user_id).get()
+            teacher_data = teacher_doc_ref.to_dict()
+            teacher_id = teacher_data.get('teacherID')
+
+            teacher_classes_ref = classes_ref.where('teacherID', '==', teacher_id)
+            classes_docs = teacher_classes_ref.stream()
+        else:
+            classes_docs = classes_ref.stream()
 
         classes_data = []
         for doc in classes_docs:
@@ -180,15 +292,29 @@ def configure_routes(app):
 
         return jsonify(classes_data)
 
-    @app.route('/get_students')
+    @app.route('/students')
     def get_students():
         students_ref = db.collection('Students')
         students = [doc.to_dict() for doc in students_ref.stream()]
         return jsonify(students)
 
-    @app.route('/get_students_by_class')
-    def get_students_by_class():
-        class_id = request.args.get('class_id')
+    @app.route('/subjects/<subject_id>/classes', methods=['GET'])
+    def get_classes_for_subject(subject_id):
+        classes_ref = db.collection('Classes').where('subjectID', '==', subject_id)
+        classes_data = []
+
+        for doc in classes_ref.stream():
+            class_data = doc.to_dict()
+            class_data['id'] = doc.id
+            class_data['start_date'] = class_data['start'].strftime("%d/%m/%Y")
+            class_data['end_date'] = class_data['end'].strftime("%d/%m/%Y")
+            class_data['day_of_week'] = day_of_week_map[class_data['start'].weekday()]
+            classes_data.append(class_data)
+
+        return jsonify(classes_data)
+
+    @app.route('/classes/<class_id>/students', methods=['GET'])
+    def get_students_by_class(class_id):
         class_doc = db.collection('Classes').document(class_id).get()
 
         if not class_doc.exists:

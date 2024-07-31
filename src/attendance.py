@@ -1,15 +1,15 @@
-from datetime import datetime, timedelta
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QComboBox, QVBoxLayout, QHBoxLayout, QGroupBox, QSizePolicy, QSpacerItem, QGridLayout
+import cv2
 import sys
 import pygame
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QComboBox, QVBoxLayout, QHBoxLayout, QGroupBox, QSizePolicy, QSpacerItem, QGridLayout
-from PyQt5.QtGui import QFont, QImage, QPixmap
-from PyQt5.QtCore import Qt, QTimer, QTime
-import cv2
-from firebase_service import FirebaseService
-from face_embedding_updater import FaceEmbeddingUpdater
+from PyQt5.QtCore import Qt, QTimer
+from datetime import datetime, timedelta
 from models.mtcnn_model import MTCNNModel
 from models.facenet_model import FaceNetModel
+from firebase_service import FirebaseService
+from PyQt5.QtGui import QFont, QImage, QPixmap
 from sklearn.metrics.pairwise import cosine_similarity
+from face_embedding_updater import FaceEmbeddingUpdater
 
 
 class AttendanceSystem(QWidget):
@@ -510,7 +510,7 @@ class AttendanceSystem(QWidget):
                 # Cập nhật dữ liệu lớp học
                 self.firebase_service.update_class_data(selected_class_id, {'buoi': buoi_array})
             else:
-                # Sinh viên đã điểm danh, không làm gì cả
+                # Sinh viên đã điểm danh
                 self.notificationLabel.setText('<font color="green" size="5">Sinh viên đã điểm danh hôm nay!')
 
         # Nếu ngày hiện tại chưa tồn tại

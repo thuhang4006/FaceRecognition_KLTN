@@ -1,0 +1,120 @@
+body {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.logo {
+    width: 200px;
+}
+
+.sidebar {
+    width: 250px;
+    background-color: #de3c00;
+    color: white;
+    position: fixed;
+    height: 100%;
+    overflow-y: auto;
+    transition: transform 0.3s ease;
+}
+
+.main-content {
+    margin-left: 250px;
+    width: calc(100% - 250px);
+    transition: margin-left 0.3s ease;
+}
+
+.nav-link {
+    color: white;
+}
+
+.nav-link:hover {
+    color: rgb(134, 134, 134);
+}
+
+.header-link {
+    color: black;
+    text-decoration: none;
+    font-size: 20px;
+}
+
+.header-link:hover {
+    color: rgb(97, 97, 97);
+    text-decoration: none;
+}
+
+.nav-header {
+
+    background-color: rgb(238, 238, 238);
+    /* padding: 20px; */
+    padding: 20px 20px 20px 0px;
+
+    display: flex;
+    justify-content: space-between;
+}
+
+.form-search {
+    display: flex;
+}
+
+.account-area {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    padding: 10px;
+    background-color: #de3c00;
+}
+
+.user-link {
+    display: flex;
+    align-items: center;
+    color: #fff;
+    text-decoration: none;
+}
+
+.user-link:hover {
+    color: #c0c0c0;
+    text-decoration: none;
+}
+
+.sidebar-hidden .sidebar {
+    transform: translateX(-250px);
+}
+
+.sidebar-hidden .main-content {
+    margin-left: 0;
+    width: 100%;
+}
+
+.toggle-button {
+    cursor: pointer;
+    background-color: #de3c00;
+    padding: 10px;
+    border-top-right-radius: 50%;
+    border-bottom-right-radius: 50%;
+
+    color: white;
+    margin-right: 20px;
+}
+
+.container-content {
+    /* background-color: rgb(238, 238, 238); */
+    padding: 20px;
+    /* padding: 20px 20px 20px 0px; */
+/*
+    display: flex;
+    justify-content: space-between; */
+}
+
+.table-list {
+    width: 100%;
+}
+
+/* Thêm vào tệp main_page.css */
+.table tbody tr:hover {
+    background-color: #f8f9fa; /* Màu nền sáng khi di chuột */
+}
+
+.table tbody tr {
+    cursor: pointer;
+}
