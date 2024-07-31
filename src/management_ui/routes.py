@@ -23,7 +23,7 @@ def gen_frames():
 
 
 def configure_routes(app):
-    @app.route('/')
+    @app.route('/fvd')
     def login():
         return render_template('login.html')
 
@@ -110,7 +110,7 @@ def configure_routes(app):
             print("Subprocess error:", e.stderr)
             return jsonify({'success': False, 'error': e.stderr})
 
-    @app.route('/addDB')
+    @app.route('/')
     def addDB():
         student_id = request.args.get('student_id', '')
         name = request.args.get('name', '')

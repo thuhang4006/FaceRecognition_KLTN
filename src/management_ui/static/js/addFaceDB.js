@@ -2,6 +2,23 @@ document.addEventListener("DOMContentLoaded", function() {
     let capturedImages = [];
     let student_id;
 
+    const instructionAudios = {
+        2: new Audio('/static/sounds/nhin-thang.mp3'),
+        3: new Audio('/static/sounds/nhin-sang-trai.mp3'),
+        4: new Audio('/static/sounds/nhin-sang-phai.mp3'),
+        5: new Audio('/static/sounds/nhin-ngua-len.mp3'),
+        6: new Audio('/static/sounds/doc-day-so.mp3')
+    };
+
+    function playAudio(instructionNumber) {
+        const audio = instructionAudios[instructionNumber];
+        if (audio) {
+            audio.play().catch(error => {
+                console.error('Error playing audio:', error);
+            });
+        }
+    }
+
     function hideAllInstructions() {
         document.querySelectorAll('.instruction').forEach(function(element) {
             element.style.display = 'none';
@@ -25,24 +42,28 @@ document.addEventListener("DOMContentLoaded", function() {
         setTimeout(function() {
             hideAllInstructions();
             document.getElementById('instruction-2').style.display = 'block';
+            playAudio(2);
             captureImages(5);
         }, 2000);
 
         setTimeout(function() {
             hideAllInstructions();
             document.getElementById('instruction-3').style.display = 'block';
+            playAudio(3);
             captureImages(3);
         }, 6000);
 
         setTimeout(function() {
             hideAllInstructions();
             document.getElementById('instruction-4').style.display = 'block';
+            playAudio(4);
             captureImages(3);
         }, 10000);
 
         setTimeout(function() {
             hideAllInstructions();
             document.getElementById('instruction-5').style.display = 'block';
+            playAudio(5);
             captureImages(4);
         }, 14000);
 
@@ -54,6 +75,7 @@ document.addEventListener("DOMContentLoaded", function() {
             const randomNumberElement = document.getElementById('random-numbers');
             randomNumberElement.innerText = randomNumbers;
             randomNumberElement.style.display = 'block';
+            playAudio(6);
             captureImages(5);
 
             setTimeout(function() {

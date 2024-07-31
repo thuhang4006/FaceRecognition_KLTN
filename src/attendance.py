@@ -64,7 +64,7 @@ class AttendanceSystem(QWidget):
         # Khởi tạo pygame và âm thanh
         pygame.init()
         pygame.mixer.init()
-        self.success_sound = pygame.mixer.Sound('../sounds/checked.mp3')
+        self.success_sound = pygame.mixer.Sound('management_ui/static/sounds/checked.mp3')
 
         # Biến lưu thông tin nhận diện
         self.recognized_student = None
@@ -478,7 +478,7 @@ class AttendanceSystem(QWidget):
         self.timeLabel.setText(datetime.now().strftime('%H:%M:%S'))
 
         # Cập nhật thông tin điểm danh lên Firebase
-        current_datetime = datetime.now()  # Sử dụng datetime thay vì date
+        current_datetime = datetime.now()
         buoi_array = class_data.get('buoi', [])
         date_today = current_datetime.date()
 
