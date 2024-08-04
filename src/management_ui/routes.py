@@ -23,7 +23,7 @@ def gen_frames():
 
 
 def configure_routes(app):
-    @app.route('/fvd')
+    @app.route('/')
     def login():
         return render_template('login.html')
 
@@ -110,7 +110,7 @@ def configure_routes(app):
             print("Subprocess error:", e.stderr)
             return jsonify({'success': False, 'error': e.stderr})
 
-    @app.route('/')
+    @app.route('/addDB')
     def addDB():
         student_id = request.args.get('student_id', '')
         name = request.args.get('name', '')
@@ -234,12 +234,12 @@ def configure_routes(app):
 
         return jsonify({'uploaded_files': uploaded_files})
 
-    @app.route('/subjects', methods=['GET'])
+    @app.route('/subjects')
     def get_subjects():
         user_id = session.get('user_id')
         role = session.get('role')
 
-        print(f"User ID: {user_id}, Role: {role}")  # Debugging line
+        print(f"User ID: {user_id}, Role: {role}")
 
         subjects_ref = db.collection('Subjects')
         if role == 'teacher':
@@ -263,7 +263,6 @@ def configure_routes(app):
 
             subjects.append(subject_data)
         return jsonify(subjects)
-
 
     @app.route('/classes')
     def get_classes():
@@ -355,6 +354,58 @@ def configure_routes(app):
             students_data.append(student_data)
 
         return jsonify(students_data)
+
+    @app.route('/classes/<class_id>/attendance-dates', methods=['GET'])
+    def get_attendance_dates_by_class(class_id):
+        class_doc = db.collection('Classes').document(class_id).get()
+
+        if not class_doc.exists:
+            return jsonify([])
+
+        attendance_dates = set()
+
+        class_data = class_doc.to_dict()
+        sessions = class_data.get('buoi', [])
+
+        for session in sessions:
+            date = session.get('ngay')
+            if date:
+                attendance_dates.add(date.strftime("%d-%m-%Y"))
+
+        attendance_dates = sorted(list(attendance_dates))
+
+        return jsonify(attendance_dates)
+
+    @app.route('/classes/<class_id>/attendance/<date>', methods=['GET'])
+    def get_students_attendance_by_date(class_id, date):
+        class_doc = db.collection('Classes').document(class_id).get()
+
+        if not class_doc.exists:
+            return jsonify([])
+
+        class_data = class_doc.to_dict()
+        sessions = class_data.get('buoi', [])
+
+        attendance_records = []
+        for session in sessions:
+            session_date = session.get('ngay')
+            if session_date and session_date.strftime("%d-%m-%Y") == date:
+                session_students = session.get('students', [])
+                for student in session_students:
+                    student_id = student.get('studentID')
+                    student_name = student.get('name')
+                    checkin_status = student.get('checkinStatus', False)
+                    checkout_status = student.get('checkoutStatus', False)
+
+                    attendance_records.append({
+                        'studentID': student_id,
+                        'name': student_name,
+                        'checkinStatus': checkin_status,
+                        'checkoutStatus': checkout_status,
+                    })
+
+        return jsonify(attendance_records)
+
 
 
 

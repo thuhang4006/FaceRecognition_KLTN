@@ -61,7 +61,6 @@ $(document).ready(function () {
                         <th scope="col">Mã môn</th>
                         <th scope="col">Tên môn</th>
                         <th scope="col">Số lớp</th>
-                        <th scope="col">Action</th>
                     </tr>
                 </thead>
                 <tbody id="subjects-table-body">
@@ -86,7 +85,6 @@ $(document).ready(function () {
                         <th scope="col">Thứ</th>
                         <th scope="col">Thời gian học</th>
                         <th scope="col">Giảng viên</th>
-                        <th scope="col">Action</th>
                     </tr>
                 </thead>
                 <tbody id="classes-table-body">
@@ -123,6 +121,49 @@ $(document).ready(function () {
             });
     }
 
+    function loadAttendanceDatesByClass(classId) {
+        fetch(`/classes/${classId}/attendance-dates`)
+            .then(response => response.json())
+            .then(dates => {
+                if (dates.length > 0) {
+                    let options = dates.map(date => `<option value="${date}">${date}</option>`).join('');
+                    $('#date-select').html(options);
+                    let latestDate = dates[0];
+                    loadStudentsAttendance(classId, latestDate);
+                } else {
+                    $('#date-select').html('<option value="">Không có dữ liệu điểm danh</option>');
+                    $('#attendance-table-body').html('<tr><td colspan="3">Không có dữ liệu điểm danh</td></tr>');
+                }
+            })
+            .catch(error => {
+                console.error('Error loading attendance dates:', error);
+            });
+    }
+
+
+    function loadStudentsAttendance(classId, date) {
+        fetch(`/classes/${classId}/attendance/${date}`)
+            .then(response => response.json())
+            .then(students => {
+                let filteredStudents = students.filter(student => {
+                    let status = student.checkinStatus && student.checkoutStatus ? 1 : 0;
+                    if ($('#absent-filter').is(':checked') && status === 0) return true;
+                    if ($('#present-filter').is(':checked') && status === 1) return true;
+                    if (!$('#absent-filter').is(':checked') && !$('#present-filter').is(':checked')) return true;
+                    return false;
+                });
+
+                let rows = filteredStudents.map((student, index) => `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${student.name}</td>
+                        <td>${student.checkinStatus && student.checkoutStatus ? 1 : 0}</td>
+                    </tr>
+                `).join('');
+                $('#attendance-table-body').html(rows);
+            });
+    }
+
     function displaySubjects(data) {
         let rows = '';
         data.forEach((subject, index) => {
@@ -132,10 +173,6 @@ $(document).ready(function () {
                     <td>${subject.id}</td>
                     <td>${subject.name}</td>
                     <td>${subject.classIDs.length}</td>
-                    <td>
-                        <button class="btn btn-outline-info"><i class="bi bi-pencil-square"></i></button>
-                        <button class="btn btn-danger"><i class="bi bi-trash3-fill"></i></button>
-                    </td>
                 </tr>
             `;
         });
@@ -161,10 +198,6 @@ $(document).ready(function () {
                     <td>${cls.day_of_week}</td>
                     <td>${cls.start_date} -> ${cls.end_date}</td>
                     <td>${cls.teacherName}</td>
-                    <td>
-                        <button class="btn btn-outline-info"><i class="bi bi-pencil-square"></i></button>
-                        <button class="btn btn-danger"><i class="bi bi-trash3-fill"></i></button>
-                    </td>
                 </tr>
             `;
         });
@@ -190,10 +223,6 @@ $(document).ready(function () {
                     <td>${cls.day_of_week}</td>
                     <td>${cls.start_date} -> ${cls.end_date}</td>
                     <td>${cls.teacherName}</td>
-                    <td>
-                        <button class="btn btn-outline-info"><i class="bi bi-pencil-square"></i></button>
-                        <button class="btn btn-danger"><i class="bi bi-trash3-fill"></i></button>
-                    </td>
                 </tr>
             `;
         });
@@ -208,7 +237,6 @@ $(document).ready(function () {
                         <th scope="col">Thứ</th>
                         <th scope="col">Thời gian học</th>
                         <th scope="col">Giảng viên</th>
-                        <th scope="col">Action</th>
                     </tr>
                 </thead>
                 <tbody id="classes-table-body">
@@ -239,6 +267,9 @@ $(document).ready(function () {
             `;
         });
         $('#content-area').html(`
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
+                <button id="attendance-detail-btn" class="btn btn-primary">Chi tiết điểm danh</button>
+            </div>
             <table class="table" style="width: 100%;">
                 <thead class="thead-light">
                     <tr>
@@ -254,6 +285,53 @@ $(document).ready(function () {
                 </tbody>
             </table>
         `);
+        // Thêm sự kiện khi bấm nút "Chi tiết điểm danh"
+        $('#attendance-detail-btn').on('click', function () {
+            $('#header-text').text('Chi tiết điểm danh');
+            loadAttendanceDetails();
+        });
+    }
+
+    function loadAttendanceDetails() {
+        $('#content-area').html(
+            `<div style="margin-bottom: 20px; display: flex; align-items: center;">
+                <select id="date-select" class="form-select" style="width: 280px; display: inline-block; margin-right: 60px; padding: 5px;">
+                </select>
+                <label style="display: flex; align-items: center; margin-left: 20px;">
+                    <input type="checkbox" id="absent-filter" style="width: 20px; height: 20px; border-radius: 50%; margin-right: 5px;"> Vắng
+                </label>
+                <label style="display: flex; align-items: center; margin-left: 40px;">
+                    <input type="checkbox" id="present-filter" style="width: 20px; height: 20px; border-radius: 50%; margin-right: 5px;"> Đi học
+                </label>
+            </div>
+            <table class="table" style="width: 100%;">
+                <thead class="thead-light">
+                    <tr>
+                        <th scope="col">STT</th>
+                        <th scope="col">Tên sinh viên</th>
+                        <th scope="col">Trạng thái</th>
+                    </tr>
+                </thead>
+                <tbody id="attendance-table-body">
+                </tbody>
+            </table>`
+        );
+
+        // Khi chọn ngày khác, hiển thị lại danh sách sinh viên điểm danh cho ngày đó
+        $('#date-select').on('change', function () {
+            let selectedDate = $(this).val();
+            loadStudentsAttendance(localStorage.getItem('currentClassId'), selectedDate);
+        });
+
+        // Lọc danh sách sinh viên theo trạng thái
+        $('#absent-filter, #present-filter').on('change', function () {
+            let selectedDate = $('#date-select').val();
+            loadStudentsAttendance(localStorage.getItem('currentClassId'), selectedDate);
+        });
+
+        // Tải danh sách các ngày điểm danh cho lớp hiện tại
+        let classId = localStorage.getItem('currentClassId');
+        loadAttendanceDatesByClass(classId);
     }
 
     function filterSubjects(searchText) {
@@ -297,6 +375,8 @@ $(document).ready(function () {
             displayStudentsByClass(filteredStudents);
         }
     }
+
+
 
     // Xử lý sự kiện quay lại hoặc tiến tới trong trình duyệt
     window.addEventListener('popstate', function (event) {
@@ -352,6 +432,7 @@ $(document).ready(function () {
                 break;
         }
     }
+
 });
 
 function toggleSidebar() {

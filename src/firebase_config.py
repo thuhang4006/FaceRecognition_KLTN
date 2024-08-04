@@ -1,3 +1,4 @@
+import json
 import re
 import firebase_admin
 from firebase_admin import credentials, firestore, storage, auth
@@ -34,6 +35,5 @@ def is_valid_password(password):
 set_custom_user_claims('lXrsUlboSGby8QNo9zb5dJDqzZG3', 'admin')
 set_custom_user_claims('JpMCfN1SyobVsisg1TVGgTyLbyv1', 'teacher')
 set_custom_user_claims('KpSqEIZ2XmaUxz0Nfec1ki582ig1', 'teacher')
-#
-#
+
 

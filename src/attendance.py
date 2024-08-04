@@ -1,3 +1,4 @@
+import numpy as np
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QComboBox, QVBoxLayout, QHBoxLayout, QGroupBox, QSizePolicy, QSpacerItem, QGridLayout
 import cv2
 import sys
@@ -339,6 +340,9 @@ class AttendanceSystem(QWidget):
                 print('Không thể đọc khung hình từ camera.')
                 return
 
+            # Đảo ngược hình ảnh theo trục X
+            frame = cv2.flip(frame, 1)
+
             boxes, landmarks = self.mtcnn_model.detect_faces(frame)
             if boxes is not None and landmarks is not None:
                 faces = self.mtcnn_model.extract_faces(frame, boxes, landmarks)
@@ -359,6 +363,8 @@ class AttendanceSystem(QWidget):
                                 self.recognize_face(face_embedding)
                             else:
                                 print("Khuôn mặt không hợp lệ.")
+            else:
+                self.notificationLabel.setText('<font size="5">Vui lòng điểm danh trước khi vào lớp!')
 
             # Cập nhật khung hình cho GUI
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -422,30 +428,27 @@ class AttendanceSystem(QWidget):
             print("Embedding không hợp lệ.")
             return
 
-        threshold = 0.8
-        max_similarity = -1
+        threshold = 0.85  # Điều chỉnh ngưỡng cho khoảng cách Euclidean nếu cần thiết
+        min_distance = float('inf')  # Khởi tạo với giá trị rất lớn
         closest_student = None
 
         all_embeddings = self.face_embedding_updater.get_all_embeddings()
 
-        """
-        Cosine Similarity: Đảm bảo rằng giá trị độ tương tự cosine được tính đúng cách. Độ tương tự 
-        cosine thường nằm trong khoảng từ -1 đến 1, với 1 là hoàn toàn giống nhau. Trong trường hợp 
-        này, cần sử dụng giá trị dương gần với 1.
-        """
         for student_id, embeddings in all_embeddings.items():
             for saved_embedding in embeddings:
-                similarity = cosine_similarity([face_embedding.flatten()], [saved_embedding['embedding']])[0][0]
-                print(f"Độ tương tự giữa embedding và saved_embedding: {similarity}")
+                # Tính khoảng cách Euclidean
+                distance = np.linalg.norm(face_embedding.flatten() - np.array(saved_embedding['embedding']))
+                print(f"Khoảng cách giữa embedding và saved_embedding: {distance}")
 
-                if similarity > max_similarity:
-                    max_similarity = similarity
+                # Cập nhật khoảng cách nhỏ nhất và sinh viên gần nhất
+                if distance < min_distance:
+                    min_distance = distance
                     closest_student = student_id
 
-        if max_similarity > threshold:
+        # Kiểm tra nếu khoảng cách nhỏ nhất nhỏ hơn ngưỡng cho phép
+        if min_distance < threshold:
             if closest_student and closest_student != self.recognized_student:
-                # Delay sau 2s mới điểm danh thành công 2 giây
-                self.delay_timer.start(1500)  # 2000 ms = 2 giây
+                self.delay_timer.start(1000)
                 self.recognized_student = closest_student
         else:
             self.notificationLabel.setText('<font size="5">Vui lòng điểm danh trước khi vào lớp!')
@@ -476,6 +479,7 @@ class AttendanceSystem(QWidget):
         self.studentIdLabel.setText(student_id)
         self.studentNameLabel.setText(name)
         self.timeLabel.setText(datetime.now().strftime('%H:%M:%S'))
+        self.notificationLabel.setText('<font color="green" size="5">Sinh viên đã điểm danh hôm nay!')
 
         # Cập nhật thông tin điểm danh lên Firebase
         current_datetime = datetime.now()
@@ -509,9 +513,7 @@ class AttendanceSystem(QWidget):
 
                 # Cập nhật dữ liệu lớp học
                 self.firebase_service.update_class_data(selected_class_id, {'buoi': buoi_array})
-            else:
-                # Sinh viên đã điểm danh
-                self.notificationLabel.setText('<font color="green" size="5">Sinh viên đã điểm danh hôm nay!')
+                self.notificationLabel.setText('<font color="green" size="5">Sinh viên điểm danh thành công.')
 
         # Nếu ngày hiện tại chưa tồn tại
         else:
@@ -534,7 +536,7 @@ class AttendanceSystem(QWidget):
             })
             # Cập nhật dữ liệu lớp học
             self.firebase_service.update_class_data(selected_class_id, {'buoi': buoi_array})
-
+            self.notificationLabel.setText('<font color="green" size="5">Sinh viên điểm danh thành công.')
 
     def closeEvent(self, event):
         if self.cap is not None:
