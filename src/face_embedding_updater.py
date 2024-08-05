@@ -20,7 +20,7 @@ class FaceEmbeddingUpdater:
 
     def update_face_embeddings(self):
         print("Cập nhật dữ liệu embeddings...")
-        # Kiểm tra và tạo thư mục dữ liệu nếu chưa tồn tại
+
         if not os.path.exists(self.data_directory):
             os.makedirs(self.data_directory)
             print(f"Thư mục data đã được tạo: {self.data_directory}")
@@ -35,19 +35,33 @@ class FaceEmbeddingUpdater:
             updated_time = student.get('updatedTime')
             created_time = student.get('createdTime')
 
-            # Tên thư mục cho sinh viên
-            folder_name = f"{student_id}_{updated_time.strftime('%Y%m%d%H%M%S')}" if updated_time else f"{student_id}_{created_time.strftime('%Y%m%d%H%M%S')}" if created_time else student_id
-            student_folder = os.path.join(self.data_directory, folder_name)
-            print(f"Đang tạo thư mục: {student_folder}")
+            # Bỏ qua nếu không có facesData
+            if not faces_data:
+                continue
 
             # Kiểm tra và tạo thư mục cho sinh viên nếu chưa tồn tại
+            student_folder = os.path.join(self.data_directory, student_id)
             if not os.path.exists(student_folder):
                 os.makedirs(student_folder)
                 print(f"Đã tạo thư mục cho sinh viên: {student_folder}")
 
             # Đọc thời gian cập nhật từ metadata
-            last_updated_time = self.get_last_updated_time(student_folder)
-            if last_updated_time and updated_time <= last_updated_time:
+            metadata_path = os.path.join(student_folder, 'metadata.json')
+            last_updated_time = None
+            if os.path.exists(metadata_path):
+                with open(metadata_path, 'r') as f:
+                    metadata = json.load(f)
+                    last_updated_time = metadata.get('time')
+                    if last_updated_time:
+                        last_updated_time = datetime.fromisoformat(last_updated_time)
+
+            # Xác định thời gian cần lưu
+            time_to_save = updated_time if updated_time else created_time
+            if time_to_save:
+                time_to_save = time_to_save.isoformat()
+
+            # Kiểm tra xem có cần cập nhật không
+            if last_updated_time and datetime.fromisoformat(time_to_save) <= last_updated_time:
                 print(f"Bỏ qua cập nhật cho sinh viên {student_id} vì dữ liệu đã cập nhật.")
                 continue
 
@@ -58,8 +72,10 @@ class FaceEmbeddingUpdater:
             self.process_faces(student_folder, faces_data)
 
             # Lưu thông tin thời gian cập nhật vào metadata
-            if updated_time:
-                self.save_metadata(student_folder, student_id, updated_time)
+            metadata = {'studentID': student_id, 'time': time_to_save}
+            with open(metadata_path, 'w') as f:
+                json.dump(metadata, f)
+            print(f"Đã lưu metadata cho sinh viên {student_id}")
 
     def clear_old_embeddings(self, student_folder):
         """
@@ -120,21 +136,6 @@ class FaceEmbeddingUpdater:
             print(f"Lỗi khi tải ảnh: {e}")
         return None
 
-    def save_metadata(self, student_folder, student_id, updated_time):
-        """
-        Lưu thông tin studentID và thời gian cập nhật vào tệp metadata.
-        Input:
-            student_folder (str): Thư mục của sinh viên.
-            student_id (str): Mã sinh viên.
-            updated_time (datetime): Thời gian cập nhật từ Firebase.
-        """
-        metadata_file = os.path.join(student_folder, 'metadata.json')
-        with open(metadata_file, 'w') as f:
-            json.dump({
-                'studentID': student_id,
-                'updatedTime': updated_time.isoformat()
-            }, f)
-
     def save_embedding(self, folder, file_name, embedding):
         """
         Lưu embedding dưới dạng file .npy.
@@ -157,24 +158,9 @@ class FaceEmbeddingUpdater:
                 np.save(embedding_file, embedding)
                 print(f"Lưu embedding thành công cho {file_name} với {embedding_file}")
             else:
-                print(f"Không lưu {file_name} vì embedding tống.")
+                print(f"Không lưu {file_name} vì embedding trống.")
         except Exception as e:
             print(f"Không lưu được embedding cho {file_name}: {e}")
-
-    def get_last_updated_time(self, student_folder):
-        """
-        Đọc thông tin thời gian cập nhật từ tệp metadata.
-        Input: student_folder (str): Thư mục của sinh viên.
-        Output: datetime: Thời gian cập nhật nếu có, None nếu không.
-        """
-        metadata_file = os.path.join(student_folder, 'metadata.json')
-        if os.path.exists(metadata_file):
-            with open(metadata_file, 'r') as f:
-                metadata = json.load(f)
-                updated_time_str = metadata.get('updatedTime')
-                if updated_time_str:
-                    return datetime.fromisoformat(updated_time_str)
-        return None
 
     def get_all_embeddings(self):
         all_embeddings = {}

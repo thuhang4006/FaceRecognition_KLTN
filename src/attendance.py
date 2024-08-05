@@ -9,7 +9,6 @@ from models.mtcnn_model import MTCNNModel
 from models.facenet_model import FaceNetModel
 from firebase_service import FirebaseService
 from PyQt5.QtGui import QFont, QImage, QPixmap
-from sklearn.metrics.pairwise import cosine_similarity
 from face_embedding_updater import FaceEmbeddingUpdater
 
 
@@ -428,7 +427,7 @@ class AttendanceSystem(QWidget):
             print("Embedding không hợp lệ.")
             return
 
-        threshold = 0.85  # Điều chỉnh ngưỡng cho khoảng cách Euclidean nếu cần thiết
+        threshold = 0.8  # Điều chỉnh ngưỡng cho khoảng cách Euclidean nếu cần thiết
         min_distance = float('inf')  # Khởi tạo với giá trị rất lớn
         closest_student = None
 
@@ -445,13 +444,12 @@ class AttendanceSystem(QWidget):
                     min_distance = distance
                     closest_student = student_id
 
-        # Kiểm tra nếu khoảng cách nhỏ nhất nhỏ hơn ngưỡng cho phép
         if min_distance < threshold:
             if closest_student and closest_student != self.recognized_student:
-                self.delay_timer.start(1000)
+                self.delay_timer.start(1500)
                 self.recognized_student = closest_student
         else:
-            self.notificationLabel.setText('<font size="5">Vui lòng điểm danh trước khi vào lớp!')
+            self.notificationLabel.setText('<font color="red" size="5">Không tìm thấy thông tin sinh viên.')
 
     def delayed_update_student_info(self):
         student_id = getattr(self, 'recognized_student', None)
@@ -471,9 +469,6 @@ class AttendanceSystem(QWidget):
             return
 
         student_data = self.firebase_service.get_student_by_id(student_id)
-        if not student_data:
-            self.notificationLabel.setText('<font color="red" size="5">Không tìm thấy thông tin sinh viên.')
-            return
 
         name = student_data.get('name')
         self.studentIdLabel.setText(student_id)

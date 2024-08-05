@@ -4,7 +4,6 @@ from facenet_pytorch import MTCNN
 
 class MTCNNModel:
     def __init__(self, device='cpu'):
-        # Khởi tạo MTCNN model
         self.device = device
         self.mtcnn = MTCNN(keep_all=True, device=self.device)
 
