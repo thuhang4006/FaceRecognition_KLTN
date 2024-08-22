@@ -7,9 +7,28 @@ class MTCNNModel:
         self.device = device
         self.mtcnn = MTCNN(keep_all=True, device=self.device)
 
+    # Hàm để tiền xử lý ảnh trước khi phát hiện khuôn mặt
+    def preprocess_image(self, image):
+        gray_image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+
+        # Áp dụng bộ lọc song phương
+        smoothed_image = cv2.bilateralFilter(gray_image, d=5, sigmaColor=50, sigmaSpace=50)
+
+        # Tạo đối tượng CLAHE
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+
+        # Áp dụng CLAHE
+        image_clahe = clahe.apply(smoothed_image)
+        return image_clahe
+
     def detect_faces(self, image):
-        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        boxes, probs, landmarks = self.mtcnn.detect(image_rgb, landmarks=True)
+        # Tiền xử lý ảnh trước khi phát hiện khuôn mặt
+        processed_image = self.preprocess_image(image)
+
+        # Chuyển ảnh grayscale về lại RGB để phù hợp với MTCNN
+        rgb_image = cv2.cvtColor(processed_image, cv2.COLOR_GRAY2RGB)
+
+        boxes, probs, landmarks = self.mtcnn.detect(rgb_image, landmarks=True)
         return boxes, landmarks
 
     def extract_faces(self, image, boxes, landmarks):

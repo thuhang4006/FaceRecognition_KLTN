@@ -63,12 +63,6 @@ class FirebaseService:
         return None
 
     def update_class_data(self, class_id, update_data):
-        """
-        Cập nhật dữ liệu lớp học trong Firestore.
-
-        :param class_id: ID của lớp học cần cập nhật.
-        :param update_data: Dữ liệu cần cập nhật.
-        """
         class_ref = self.db.collection('Classes').document(class_id)
         try:
             class_ref.update(update_data)

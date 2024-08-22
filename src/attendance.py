@@ -448,6 +448,8 @@ class AttendanceSystem(QWidget):
             if closest_student and closest_student != self.recognized_student:
                 self.delay_timer.start(1500)
                 self.recognized_student = closest_student
+            elif closest_student and closest_student == self.recognized_student:
+                self.notificationLabel.setText('<font color="green" size="5">Sinh viên đã điểm danh hôm nay!')
         else:
             self.notificationLabel.setText('<font color="red" size="5">Không tìm thấy thông tin sinh viên.')
 
